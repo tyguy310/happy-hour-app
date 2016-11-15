@@ -33,6 +33,18 @@ func fetchVenues(dbMap *gorp.DbMap) []Venue {
 	return venues
 }
 
+func fetchOneVenue(dbMap *gorp.DbMap, id string) []Venue {
+	var venues []Venue
+
+	_, err := dbMap.Select(&venues, "SELECT * FROM venues WHERE id=$1", id)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return venues
+}
+
 //makeVenuesRoute takes in a GORP DbMap and makes a route that uses that
 //DbMap to fetch all venues in the venues table and serve them as JSON.
 func makeVenuesRoute(dbMap *gorp.DbMap) func(http.ResponseWriter, *http.Request) {
@@ -48,6 +60,21 @@ func makeVenuesRoute(dbMap *gorp.DbMap) func(http.ResponseWriter, *http.Request)
 	}
 }
 
+func makeVenueRoute(dbMap *gorp.DbMap) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		venue := fetchOneVenue(dbMap, id)
+
+		venueJSON, err := json.Marshal(venue)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(id)
+		fmt.Fprintf(w, "%s", venueJSON)
+	}
+}
+
 //initRouter takes in a GORP DbMap and initializes the router's routes while
 //using the DbMap to handle database functionality.
 func initRouter(dbMap *gorp.DbMap) *mux.Router {
@@ -55,6 +82,7 @@ func initRouter(dbMap *gorp.DbMap) *mux.Router {
 
 	//Add the venues route API with makeVenuesRoute
 	r.HandleFunc("/venues", makeVenuesRoute(dbMap))
+	r.HandleFunc("/venues/{id}", makeVenueRoute(dbMap))
 
 	//Serve all other requests with index.html, and ultimately the front-end
 	//Angular.js app.
